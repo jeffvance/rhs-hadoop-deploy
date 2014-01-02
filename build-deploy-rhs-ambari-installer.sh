@@ -8,7 +8,6 @@
 #### First, define the build location. ####
 # NOTE: this is an intermediate target tarball directory
 BUILD_LOCATION=/var/lib/jenkins/workspace/Ambari
-REPO=/root/archivainstall/apache-archiva-1.3.6/data/repositories/internal
 SOURCE=$(pwd) # expected to be a git directory
 S3_BKT='s3://rhbd'
 S3_1_X_OBJ="$S3_BKT/rhs-hadoop-install/1.x" # location for hadoop 1.x files
