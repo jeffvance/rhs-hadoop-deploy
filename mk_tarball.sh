@@ -168,7 +168,6 @@ function create_tarball(){
   local TARBALL_PATH="$TARBALL_DIR/$TARBALL"
   local FILES_TO_TAR="*.sh \
 	functions \
-	*sudoers* \
 	hosts.example \
 	README.* \
 	$INCLUDED_FILES" 
