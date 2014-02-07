@@ -180,8 +180,9 @@ function create_tarball(){
   mkdir $TARBALL_DIR
   cp --parent $FILES_TO_TAR $TARBALL_DIR
 
-  # exclude the script used to prepare the rhs repo with the common files
-  tar cvzf $TARBALL $TARBALL_DIR --exclude FIRST_PREP_REPO.sh
+  # exclude the script used to prepare the rhs repo with the common files and
+  # any vi .swp files
+  tar cvzf $TARBALL $TARBALL_DIR --exclude FIRST_PREP_REPO.sh --exclude *swp
   if [[ $? != 0 || $(ls $TARBALL|wc -l) != 1 ]] ; then
     echo "ERROR: creation of tarball failed."
     exit 1
