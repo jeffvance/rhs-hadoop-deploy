@@ -169,7 +169,8 @@ function create_tarball(){
   local FILES_TO_TAR="*.sh \
 	functions \
 	hosts.example \
-	README.* \
+	README.txt \
+	rhs-hadoop-beta.repo \
 	$INCLUDED_FILES" 
 
   echo -e "\n  - Creating $TARBALL tarball in $TARGET"
