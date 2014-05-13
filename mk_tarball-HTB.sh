@@ -3,9 +3,11 @@
 # This script creates the RHS install tarball package. Currently this includes 
 # the following files:
 #  * rhs-hadoop-install-<verison> directory which contains:
-#   - *.sh: the main scripts
-#   - README.md
-#   - bin/: many utility scripts
+#   - hosts.example: sample "hosts" config file.
+#   - install.sh: the main install script, executed by the root user.
+#   - prep_node.sh: companion script, not to be executed directly.
+#   - README.txt: this file.
+#   - devutils/: utility directory.
 #   - plus optional directories via the --dirs option.
 #
 # This script is expected to be run from a git repo so that source version
@@ -15,24 +17,34 @@
 # There are no required command line args. All options are described in the
 # usage() function.
 
+# source common constants and functions
+if [[ -f functions ]] ; then source functions
+elif [[ -f ../functions ]] ; then source ../functions
+else echo "Missing \"functions \" library"; exit -1
+fi
+
 # usage: echo the standard usage text with supported options.
 #
 function usage(){
 
   cat <<EOF
 
-  This script creates the rhs-hadoop-install tarball package.
+  This script may convert the install guide .odt document file to pdf (if the
+  doc file is present in one of the supplied --dirs=) and creates the rhs-
+  hadoop-install tarball package.
 
   There are no required parameters.
   
   SYNTAX:
   
   --source     : the directory containing the source files used to create the
-                 tarball. It is expected that a git clone or git pull has been
-                 done into the SOURCE directory.
+                 tarball (including the .odt doc file). It is expected that a
+                 git clone or git pull has been done into the SOURCE directory.
                  Default is the current working directory.
   --target-dir : the produced tarball will reside in this directory. Default is
                  the SOURCE directory.
+  --odt-doc    : the name of the  install guide .odt doc file. Default is"
+                 "Ambari_Configuration_Guide"
   --pkg-version: the version string to be used as part of the tarball filename.
                  Default is the most recent git version in the SOURCE dir.
   --dirs       : list of directory names, separated by only a comma. The
@@ -48,14 +60,15 @@ EOF
 function parse_cmd(){
 
   local OPTIONS='h'
-  local LONG_OPTS='source:,target-dir:,pkg-version:,dirs:,help'
+  local LONG_OPTS='source:,target-dir:,pkg-version:,odt-doc:,dirs:,help'
   local dir; local i
 
   # defaults (global variables)
   SOURCE=$PWD
   TARGET=$SOURCE
   PKG_VERSION=''
-  DIRS=(bin/) # array, always include contents of bin/
+  ODT_DOC='Ambari_Configuration_Guide'
+  DIRS=(devutils/) # array, always include contents of devutils/
 
   local args=$(getopt -n "$(basename $0)" -o $OPTIONS --long $LONG_OPTS -- $@)
   (( $? == 0 )) || { echo "$SCRIPT syntax error"; exit -1; }
@@ -74,6 +87,9 @@ function parse_cmd(){
 	;;
 	--pkg-version)
 	   PKG_VERSION=$2; shift 2; continue
+	;;
+	--odt-doc)
+	   ODT_DOC=$2; shift 2; continue
 	;;
 	--dirs)
 	   DIRS+=(${2//,/ }) # replace comma with space and append to array
@@ -111,6 +127,33 @@ function parse_cmd(){
   done
 }
 
+# convert_odt_2_pdf: if possible convert the .odt doc file under the user's
+# cwd to a pdf file using libreoffice. Report warning if this can't be done.
+#
+function convert_odt_2_pdf(){
+
+  # user can provide docfile.odt or just docfile w/o .odt
+  ODT_DOC=${ODT_DOC%.odt} # remove .odt extension if present
+
+  local ODT_FILE="$ODT_DOC.odt"
+  local PDF_FILE="$ODT_DOC.pdf"
+
+  # get dirname of odt file and cd to it if match
+  match_dir "$ODT_FILE" "$INCLUDED_FILES" # sets MATCH_DIR var if match
+  [[ -z "$MATCH_DIR" ]] && {
+    echo "INFO: $ODT_FILE file does not exist, no PDF conversion needed.";
+    return; }
+
+  cd $MATCH_DIR
+  echo -e "\n  - Converting \"$ODT_FILE\" to pdf..."
+
+  libreoffice --headless --invisible --convert-to pdf $ODT_FILE	
+  [[ $? != 0 || $(ls $PDF_FILE|wc -l) != 1 ]] && {
+    echo "WARN: $ODT_FILE not converted to pdf"; }
+
+  cd -
+}
+
 # create_tarball: create a versioned directory in the user's cwd, copy the
 # target contents to that dir, create the tarball, and finally rm the
 # versioned dir.
@@ -124,8 +167,10 @@ function create_tarball(){
   local TARBALL_DIR="$TARBALL_PREFIX" # scratch dir not TARGET dir
   local TARBALL_PATH="$TARBALL_DIR/$TARBALL"
   local FILES_TO_TAR="*.sh \
-	VERSION \
-	README.md \
+	functions \
+	hosts.example \
+	README.txt \
+	rhs-hadoop-beta.repo \
 	$INCLUDED_FILES" 
 
   echo -e "\n  - Creating $TARBALL tarball in $TARGET"
@@ -154,7 +199,8 @@ function create_tarball(){
 ##      ##
 parse_cmd $@
 
-echo "Creates a tarball containing the install package."
+echo -e "This script converts the existing .odt doc file to pdf and then creates"
+echo "a tarball containing the install package."
 echo
 echo "  Source dir:  $SOURCE"
 echo "  Target dir:  $TARGET"
@@ -167,6 +213,7 @@ for dir in ${DIRS[@]} ; do
     INCLUDED_FILES+="$(find $dir -maxdepth 1 -type f) "
 done
 
+convert_odt_2_pdf
 create_tarball
 
 echo
